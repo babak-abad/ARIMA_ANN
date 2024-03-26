@@ -1,6 +1,44 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout, LSTM
+import cfg
+from sklearn import preprocessing
+
+
+def make_lstm_model():
+    model = Sequential()
+    model.add(LSTM(
+        units=20,
+        input_dim=1,
+
+        return_sequences=True))
+    model.add(Dropout(0.1))
+    model.add(LSTM(
+        100,
+        return_sequences=False))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(
+        units=1))
+    model.add(Activation("linear"))
+    model.compile(loss="mse", optimizer="rmsprop")
+    return model
+
+
+def make_model(window_size):
+    model = Sequential()
+    model.add(Dense(cfg.l1, input_dim=window_size, activation="tanh"))
+    model.add(Dense(cfg.l2, activation="tanh"))
+    model.add(Dense(cfg.l3, activation="tanh"))
+    model.add(Dense(1, activation='sigmoid'))
+    #model.add(Activation("linear"))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
+
 
 
 def percentage_error(actual, predicted):
@@ -62,3 +100,36 @@ def draw_nn_perf(ann_history):
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
     plt.show()
+
+
+def print_errors(
+        predictor_name,
+        actual_data,
+        prediction_data):
+    mse = mean_squared_error(
+        actual_data,
+        prediction_data)
+    print(
+        "{0} ({1}): {2:0.3f}".format(
+        'MSE', predictor_name, mse))
+
+    me = mean_error(
+        actual_data,
+        prediction_data)
+    print(
+        "{0} ({1}): {2:0.3f}".format(
+        'ME', predictor_name, me))
+
+    mae = mean_absolute_error(
+        actual_data,
+        prediction_data)
+    print(
+        "{0} ({1}): {2:0.3f}".format(
+        'MAE', predictor_name, mae))
+
+    mape = mean_absolute_percentage_error(
+        actual_data,
+        prediction_data)
+    print(
+        "{0} ({1}): {2:0.3f}".format(
+        'MAPE', predictor_name, mape))

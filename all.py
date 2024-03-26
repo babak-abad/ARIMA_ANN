@@ -1,11 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels.graphics.api import qqplot
-from sklearn.metrics import mean_squared_error as mse
 import util as utl
 from statsmodels.tsa.arima.model import ARIMA
 from keras.models import Sequential
@@ -27,17 +25,14 @@ from statsmodels.tsa.stattools import acf
 from keras.layers import LSTM
 
 
-
-
 # loading data
 ls_data = utl.read_data(cfg.csv_path)
-ls_data = ls_data[0:500]
+#ls_data = ls_data[0:1000]
 start_outlayer = 50
-ylim = (0, 5000)
 # showing data
 plt.close('all')
 plt.title('raw data')
-plt.ylim(ylim)
+plt.ylim(cfg.ylim)
 plt.plot(ls_data, marker=',')
 plt.show()
 
@@ -48,7 +43,11 @@ train, test = ls_data[0:trn_count], ls_data[trn_count:len(ls_data)]
 print('# sample train: ' + str(trn_count))
 print('# sample test: ' + str(len(test)))
 
-model = ARIMA(train, order=(1, 0, 0))
+model = ARIMA(train,
+              order=(
+                  cfg.ARIMA_p1,
+                  cfg.ARIMA_p2,
+                  cfg.ARIMA_p3))
 model_fit = model.fit()
 # acf_1 = acf(ls_data)
 # plt.plot(acf_1)
@@ -64,18 +63,26 @@ model_fit = model.fit()
 """
 Arima Rolling Forecast
 """
-hybrid_pred, resid_test = [], []
+print(200*'#')
+print('ARIMA training...')
+arima_pred, resid_test = [], []
 history = train
 for t in range(len(test)):
-    model = ARIMA(history, order=(1, 0, 0))
+    model = ARIMA(history,
+                  order=(
+                      cfg.ARIMA_p1,
+                      cfg.ARIMA_p2,
+                      cfg.ARIMA_p3))
     model_fit = model.fit()
     output = model_fit.forecast()
     yhat = output[0]
     resid_test.append(test[t] - output[0])
-    hybrid_pred.append(yhat)
+    arima_pred.append(yhat)
     obs = test[t]
     history.append(obs)
-    print(str(t) + ' - ' + 'predicted=%f, expected=%f' % (yhat, obs))
+    if cfg.shw_ARIMA:
+        print(
+            str(t) + ' - ' + 'predicted=%f, expected=%f' % (yhat, obs))
 
 test_resid = []
 for i in resid_test:
@@ -83,34 +90,24 @@ for i in resid_test:
 
 mse = mean_squared_error(
     test_resid[start_outlayer:],
-    hybrid_pred[start_outlayer:],
+    arima_pred[start_outlayer:],
     squared=False)
 print('Test MSE (ARIMA): %.3f' % mse)
 
-me = utl.mean_error(
+utl.print_errors(
+    'ARIMA',
     test_resid[start_outlayer:],
-    hybrid_pred[start_outlayer:])
-print('Test ME (ARIMA): %.3f' % me)
+    arima_pred[start_outlayer:])
 
-mae = mean_absolute_error(
-    test_resid[start_outlayer:],
-    hybrid_pred[start_outlayer:])
-print('Test MAE (ARIMA): %.3f' % mae)
-
-mape = utl.mean_absolute_percentage_error(
-    test_resid[start_outlayer:],
-    hybrid_pred[start_outlayer:])
-print('Test MAPE (ARIMA): %.3f' % mape)
-
-plt.title('Hybrid')
-plt.ylim(ylim)
+plt.title('ARIMA')
+plt.ylim(cfg.ylim)
 plt.plot(
     test[start_outlayer:],
     label='actual',
     color='blue',
     marker='.')
 plt.plot(
-    hybrid_pred[start_outlayer:],
+    arima_pred[start_outlayer:],
     label='prediction',
     color='red',
     marker=',')
@@ -121,7 +118,12 @@ plt.show()
 Residual Diagnostics
 """
 #train, test = ls_data[0:trn_count], ls_data[trn_count:len(ls_data)]
-model = ARIMA(train, order=(1, 0, 0))
+model = ARIMA(
+    train,
+    order=(
+        cfg.ARIMA_p1,
+        cfg.ARIMA_p2,
+        cfg.ARIMA_p3))
 model_fit = model.fit()
 print(model_fit.summary())
 # plot residual errors
@@ -139,46 +141,14 @@ test_df.columns = ["Autocorrelation"]
 test_df.index += 1
 test_df.plot(kind='bar')
 plt.show()
+
 """
 Hybrid Model
 """
-
-
-def make_lstm_model():
-    model = Sequential()
-    model.add(LSTM(
-        units=20,
-        input_dim=1,
-
-        return_sequences=True))
-    model.add(Dropout(0.1))
-    model.add(LSTM(
-        100,
-        return_sequences=False))
-    model.add(Dropout(0.1))
-
-    model.add(Dense(
-        units=1))
-    model.add(Activation("linear"))
-    model.compile(loss="mse", optimizer="rmsprop")
-    return model
-
-
-def make_model(window_size):
-    model = Sequential()
-    model.add(Dense(6, input_dim=window_size, activation="tanh"))
-    model.add(Dense(1, activation="tanh"))
-    model.add(Dense(1, activation="tanh"))
-    model.add(Dense(1))
-    model.add(Activation("linear"))
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    return model
-
-
 if (cfg.model_type == 'lstm'):
-    model = make_lstm_model()
+    model = utl.make_lstm_model()
 else:
-    model = make_model(cfg.win_sz)
+    model = utl.make_model(cfg.win_sz)
 
 mms = preprocessing.MinMaxScaler()
 train = np.array(train).reshape(-1, 1)
@@ -197,12 +167,15 @@ for i in train_y:
     new_train_Y.append(i.reshape(-1))
 new_train_X = np.array(new_train_X)
 new_train_Y = np.array(new_train_Y)
+
+print(200*'#')
+print('ANN training...')
 his = model.fit(
     new_train_X, new_train_Y,
     epochs=cfg.epoch,
     batch_size=cfg.batch_sz,
     validation_split=cfg.vld_spl,
-    verbose=0)
+    verbose=cfg.verbose)
 
 # draw ann performance
 utl.draw_nn_perf(his)
@@ -234,15 +207,16 @@ new_test_Y = np.array(new_test_Y)
 predictions = model.predict(new_test_X)
 predictions_rescaled = mms.inverse_transform(predictions)
 y = pd.DataFrame(new_train_Y)
-pred = pd.DataFrame(predictions)
-# plt.ylim(ylim)
+#pred = pd.DataFrame(predictions)
+plt.ylim(cfg.ylim)
 plt.plot(
-    test[start_outlayer: len(pred)],
+    test[start_outlayer: len(predictions)],
     label='actual',
     color='blue',
     marker='.')
+tmp = predictions_rescaled[start_outlayer:]
 plt.plot(
-    predictions_rescaled[start_outlayer:],
+    tmp,
     label='prediction',
     color='red',
     marker=',')
@@ -250,52 +224,24 @@ plt.title('ANN')
 plt.legend()
 plt.show()
 
-mse = mean_squared_error(
+utl.print_errors(
+    'ANN',
     test[start_outlayer:],
     predictions_rescaled[start_outlayer:])
-print('Test MSE (ANN): %.3f' % mse)
 
-me = utl.mean_error(
-    test[start_outlayer:],
-    predictions_rescaled[start_outlayer:])
-print('Test ME (ANN): %.3f' % me)
-
-mae = mean_absolute_error(
-    test[start_outlayer:],
-    predictions_rescaled[start_outlayer:])
-print('Test MAE (ANN): %.3f' % mae)
-
-mape = utl.mean_absolute_percentage_error(
-    test[start_outlayer:],
-    predictions_rescaled[start_outlayer:])
-print('Test MAPE (ANN): %.3f' % mape)
-
+print(50*'#')
+print('Hybrid training...')
 predictions_rescaled = predictions_rescaled.squeeze()
-pred_final = predictions_rescaled + hybrid_pred
+pred_final = predictions_rescaled + arima_pred
 m1 = np.mean(pred_final)
 m2 = np.mean(test)
 pred_final += m2 - m1
 #pred_final = pred_final * 0.9 * 1.2 * 0.9 * 1.031 + 500 + 800
 
-mse = mean_squared_error(
+utl.print_errors(
+    'Hybrid',
     test[start_outlayer:],
     pred_final[start_outlayer:])
-print('Test MSE (Hybrid): %.3f' % mse)
-
-me = utl.mean_error(
-    test[start_outlayer:],
-    pred_final[start_outlayer:])
-print('Test ME (Hybrid): %.3f' % me)
-
-mae = mean_absolute_error(
-    test[start_outlayer:],
-    pred_final[start_outlayer:])
-print('Test MAE (Hybrid): %.3f' % mae)
-
-mape = utl.mean_absolute_percentage_error(
-    test[start_outlayer:],
-    pred_final[start_outlayer:])
-print('Test MAPE (Hybrid): %.3f' % mape)
 
 y = pd.DataFrame(test)
 pred = pd.DataFrame(pred_final)
@@ -310,6 +256,7 @@ plt.plot(
     label='prediction',
     color='red',
     marker=',')
-plt.title('ARIMA')
+plt.title('Hybrid')
+plt.ylim(cfg.ylim)
 plt.legend()
 plt.show()
