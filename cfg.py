@@ -5,7 +5,7 @@ l3 = 5 # this must be 1 !
 
 #network training
 trn_sz = 0.5
-epoch = 5000
+epoch = 300
 batch_sz = 128
 vld_spl = 0.5
 model_type = 'other'

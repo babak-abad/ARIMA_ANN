@@ -6,6 +6,11 @@ from sklearn.metrics import mean_absolute_error
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, LSTM
 import cfg
+
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn import datasets, linear_model, metrics
 from sklearn import preprocessing
 
 
@@ -133,3 +138,10 @@ def print_errors(
     print(
         "{0} ({1}): {2:0.3f}".format(
         'MAPE', predictor_name, mape))
+
+
+def predict_lin_reg(x_train, y_train, x_test):
+    reg = linear_model.LinearRegression()
+    reg.fit(x_train, y_train)
+    return reg.predict(x_test)
+
