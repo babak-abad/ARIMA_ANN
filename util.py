@@ -40,10 +40,9 @@ def make_model(window_size):
     model.add(Dense(cfg.l2, activation="tanh"))
     model.add(Dense(cfg.l3, activation="tanh"))
     model.add(Dense(1, activation='sigmoid'))
-    #model.add(Activation("linear"))
+    # model.add(Activation("linear"))
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
-
 
 
 def percentage_error(actual, predicted):
@@ -116,32 +115,83 @@ def print_errors(
         prediction_data)
     print(
         "{0} ({1}): {2:0.3f}".format(
-        'MSE', predictor_name, mse))
+            'MSE', predictor_name, mse))
 
     me = mean_error(
         actual_data,
         prediction_data)
     print(
         "{0} ({1}): {2:0.3f}".format(
-        'ME', predictor_name, me))
+            'ME', predictor_name, me))
 
     mae = mean_absolute_error(
         actual_data,
         prediction_data)
     print(
         "{0} ({1}): {2:0.3f}".format(
-        'MAE', predictor_name, mae))
+            'MAE', predictor_name, mae))
 
     mape = mean_absolute_percentage_error(
         actual_data,
         prediction_data)
     print(
         "{0} ({1}): {2:0.3f}".format(
-        'MAPE', predictor_name, mape))
+            'MAPE', predictor_name, mape))
 
 
-def predict_lin_reg(x_train, y_train, x_test):
+def predict_lin_reg(x_train, y_train):
     reg = linear_model.LinearRegression()
+    # x = np.array(x_train)
+    # x = x.reshape((-1, 1))
+    # y = np.array(y_train)
     reg.fit(x_train, y_train)
-    return reg.predict(x_test)
+    return reg
 
+
+# fig is matplotlib object
+# x_train and y_train must be list
+def draw_lin_reg(fig, x_train, y_train):
+    x = np.array(x_train)
+    x = x.reshape((-1, 1))
+
+    mn = np.min(x_train)
+    mx = np.max(x_train)
+
+    y = np.array(y_train)
+    reg = predict_lin_reg(x, y)
+
+    p0 = [mn, mx]
+    p1 = [mn * reg.coef_[0] + reg.intercept_, mx * reg.coef_[0] + reg.intercept_]
+
+    plt.plot(p0, p1, figure=fig, color='cyan')
+    plt.plot([mn, mx], [mn, mx], figure=fig, color='red')
+
+    d = np.round(np.rad2deg(np.arctan(reg.coef_[0])), 2)
+    print('regression line degree: ' + str(d))
+    print('regression intercept: ', str(reg.intercept_))
+
+
+def show_45_deg_stats(
+        method_name,
+        test_data,
+        pred_data):
+    fig, ax = plt.subplots(1, 1)
+    plt.scatter(
+        test_data,
+        pred_data,
+        marker='o',
+        label='prediction',
+        color='blue',
+        figure=fig)
+
+    plt.xlabel('actual', figure=fig)
+    plt.ylabel('prediction', figure=fig)
+    plt.title(method_name, figure=fig)
+
+    # ax.legend(figure=fig)
+    draw_lin_reg(
+        fig,
+        test_data,
+        pred_data)
+
+    ax.legend(['data', 'regression line', '45 degree line'])
