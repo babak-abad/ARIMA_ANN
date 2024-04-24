@@ -173,25 +173,49 @@ def draw_lin_reg(fig, x_train, y_train):
 
 def show_45_deg_stats(
         method_name,
-        test_data,
+        actual_data,
         pred_data):
+
     fig, ax = plt.subplots(1, 1)
     plt.scatter(
-        test_data,
         pred_data,
+        actual_data,
         marker='o',
         label='prediction',
         color='blue',
         figure=fig)
 
-    plt.xlabel('actual', figure=fig)
-    plt.ylabel('prediction', figure=fig)
+    plt.xlabel('prediction', figure=fig)
+    plt.ylabel('actual', figure=fig)
     plt.title(method_name, figure=fig)
 
-    # ax.legend(figure=fig)
-    draw_lin_reg(
-        fig,
-        test_data,
-        pred_data)
+    # draw_lin_reg(
+    #     fig,
+    #     test_data,
+    #     pred_data)
+
+    x = np.array(pred_data)
+    x = x.reshape((-1, 1))
+
+    mn = np.min(pred_data)
+    mx = np.max(pred_data)
+
+    y = np.array(actual_data)
+    reg = predict_lin_reg(x, y)
+    r2 = reg.score(x, y)
+    p0 = [mn, mx]
+    p1 = [mn * reg.coef_[0] + reg.intercept_, mx * reg.coef_[0] + reg.intercept_]
+
+    plt.plot(p0, p1, figure=fig, color='cyan')
+
+    # mn = min(mn, np.min(actual_data))
+    # mx = max(mx, np.max(actual_data))
+
+    plt.plot([mn, mx], [mn, mx], figure=fig, color='red')
+
+    d = np.round(np.rad2deg(np.arctan(reg.coef_[0])), 2)
+    print('regression line degree(' + method_name + "): " + str(d))
+    print('regression line degree(' + method_name + "): " + str(reg.intercept_))
+    print('regression R2(' + method_name + "): " + str(r2))
 
     ax.legend(['data', 'regression line', '45 degree line'])
